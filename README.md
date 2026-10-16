@@ -16,10 +16,9 @@ Cada envio para a branch `main` gera um APK novo automaticamente (aba **Actions*
 - **Contínuo:** encaixe a carta na moldura com o nome na faixa dourada. Ao trocar a carta, ele lê e soma sozinho.
 - **Toque:** toque na imagem para ler a carta atual.
 - Corrija nomes na lista, ajuste com − e +, e use **Copiar lista**, **Salvar .txt** (vai para Documentos) ou **Enviar**.
-- O reconhecimento roda no próprio celular e funciona sem internet.
+- O reconhecimento roda no próprio celular (Google ML Kit) e funciona sem internet.
 
 ## Estrutura
-- `www/index.html`: o app inteiro (interface, câmera e leitura).
-- `scripts/vendor.js`: copia o Tesseract e os idiomas para `www/vendor`.
-- `android/`: projeto Android (Capacitor).
+- `www/index.html`: o app inteiro (interface, câmera e lista).
+- `android/`: projeto Android (Capacitor). A leitura do texto usa o Google ML Kit em `TextReaderPlugin.java`.
 - `.github/workflows/build-apk.yml`: compila e publica o APK.

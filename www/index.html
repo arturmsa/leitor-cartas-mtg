@@ -80,7 +80,7 @@ textarea{position:fixed;left:-9999px;top:0}
     <div class="read"><span class="dot" id="dot"></span><b id="readTxt">Câmera desligada</b></div>
     <div class="start" id="startBox">
       <button class="pri" id="startBtn">Abrir câmera</button>
-      <p id="startMsg">Encaixe a carta na moldura, com o nome dentro da faixa dourada.</p>
+      <p id="startMsg">Abrindo a câmera…</p>
     </div>
   </div>
 
@@ -114,7 +114,6 @@ textarea{position:fixed;left:-9999px;top:0}
 <div class="toast" id="toast"></div>
 <textarea id="clip" aria-hidden="true" tabindex="-1"></textarea>
 
-<script src="vendor/tesseract.min.js"></script>
 <script>
 (() => {
 const $ = id => document.getElementById(id);
@@ -124,7 +123,7 @@ const NAME = {x:.05, y:.032, w:.68, h:.072}; // faixa do nome (sem o custo de ma
 
 let entries = [];   // {name, count}
 let history = [];   // índices adicionados, para desfazer
-let worker=null, stream=null, track=null;
+let stream=null, track=null, torch=false;
 let running=false, paused=false, mode='cont', busy=false;
 let armed=true, lastKey='', prevKey='', lastAddAt=0, motionPrev=null;
 
@@ -203,22 +202,13 @@ function toVideo(r){
 function rectOf(el){ const c=cam.getBoundingClientRect(),b=el.getBoundingClientRect(); return {x:b.left-c.left,y:b.top-c.top,w:b.width,h:b.height}; }
 
 /* ---------- imagem da faixa do nome ---------- */
-const oc=document.createElement('canvas'), ox=oc.getContext('2d',{willReadFrequently:true});
+const oc=document.createElement('canvas'), ox=oc.getContext('2d');
 function grabName(){
-  const r=rectOf(strip), pad=r.h*.12; r.x+=pad; r.y+=pad*.6; r.w-=pad*2; r.h-=pad*1.2;
-  const v=toVideo(r); const TH=64, sc=TH/v.h; oc.width=Math.round(v.w*sc); oc.height=TH;
+  const r=rectOf(strip), pad=r.h*.08; r.x+=pad; r.w-=pad*2;
+  const v=toVideo(r); const TH=110, sc=Math.min(1.6,TH/v.h);
+  oc.width=Math.round(v.w*sc); oc.height=Math.round(v.h*sc);
   ox.drawImage(video,v.x,v.y,v.w,v.h,0,0,oc.width,oc.height);
-  const im=ox.getImageData(0,0,oc.width,oc.height), d=im.data, n=d.length/4, g=new Uint8Array(n), hist=new Array(256).fill(0);
-  for(let i=0;i<n;i++){ const y=(d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114)|0; g[i]=y; hist[y]++; }
-  // limiar de Otsu
-  let sum=0; for(let i=0;i<256;i++) sum+=i*hist[i];
-  let sB=0,wB=0,best=0,th=128; for(let i=0;i<256;i++){ wB+=hist[i]; if(!wB) continue; const wF=n-wB; if(!wF) break; sB+=i*hist[i];
-    const mB=sB/wB,mF=(sum-sB)/wF,v2=wB*wF*(mB-mF)*(mB-mF); if(v2>best){best=v2;th=i;} }
-  let dark=0; for(let i=0;i<n;i++) if(g[i]<th) dark++;
-  const inv = dark>n/2; // texto claro em fundo escuro
-  for(let i=0;i<n;i++){ let b=g[i]<th?0:255; if(inv) b=255-b; d[i*4]=d[i*4+1]=d[i*4+2]=b; }
-  ox.putImageData(im,0,0);
-  return oc;
+  return oc.toDataURL('image/jpeg',.85);
 }
 
 /* ---------- detecção de troca de carta ---------- */
@@ -231,17 +221,23 @@ function motion(){
   motionPrev=cur; return motionPrev?diff/cur.length:0;
 }
 
-/* ---------- OCR ---------- */
+/* ---------- leitura (Google ML Kit, nativo) ---------- */
+const READER = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.TextReader;
 async function ocrOnce(){
-  const c=grabName(); const {data}=await worker.recognize(c);
-  const t=clean(data.text); const letters=(t.match(/[A-Za-zÀ-ÿ]/g)||[]).length;
-  const ok = t.length>=3 && letters/t.replace(/ /g,'').length>.8 && data.confidence>=55;
-  return {text:t, ok, conf:data.confidence};
+  const res=await READER.recognize({image:grabName()});
+  const lines=(res.lines||[]).filter(l=>l.text && l.text.trim());
+  if(!lines.length) return {text:'',ok:false};
+  // o nome é a linha mais alta (maior fonte) da faixa
+  const top=lines.reduce((m,l)=>(l.h||0)>(m.h||0)?l:m,lines[0]);
+  const t=clean(top.text); const letters=(t.match(/[A-Za-zÀ-ÿ]/g)||[]).length;
+  const ok = t.length>=3 && letters/Math.max(1,t.replace(/ /g,'').length)>.8;
+  return {text:t, ok};
 }
-async function loop(){
-  if(!running) return;
-  if(paused||mode!=='cont'||busy){ setTimeout(loop,150); return; }
-  if(motion()>14) { armed=true; prevKey=''; }
+let gen=0;
+async function loop(g=gen){
+  if(!running||g!==gen) return;
+  if(paused||mode!=='cont'||busy){ setTimeout(()=>loop(g),150); return; }
+  if(motion()>10) { armed=true; prevKey=''; }
   busy=true;
   try{
     const r=await ocrOnce(); const k=norm(r.text);
@@ -255,7 +251,7 @@ async function loop(){
       prevKey=k;
     } else { prevKey=''; if(r.text.length===0) armed=true; }
   }catch(e){ console.warn(e); }
-  busy=false; setTimeout(loop,60);
+  busy=false; setTimeout(()=>loop(g),40);
 }
 async function tapRead(){
   if(!running||busy) return; busy=true; $('readTxt').textContent='Lendo…';
@@ -268,31 +264,34 @@ async function tapRead(){
 cam.addEventListener('click',e=>{ if(mode==='tap' && !e.target.closest('.start')) tapRead(); });
 
 /* ---------- câmera ---------- */
+let starting=false;
 async function start(){
-  const msg=$('startMsg'); $('startBtn').disabled=true;
+  if(starting) return; starting=true;
+  const msg=$('startMsg'); $('startBtn').disabled=true; $('startBox').hidden=false;
   try{
+    if(!READER) throw Object.assign(new Error('Leitor de texto indisponível neste aparelho.'),{name:'NoReader'});
     msg.textContent='Abrindo a câmera…';
     stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
     video.srcObject=stream; await video.play(); track=stream.getVideoTracks()[0];
     try{ const cap=track.getCapabilities?.()||{};
       if(cap.focusMode?.includes('continuous')) await track.applyConstraints({advanced:[{focusMode:'continuous'}]});
-      if(cap.torch) $('torchBtn').hidden=false; }catch(e){}
-    msg.textContent='Carregando o leitor…';
-    const base=new URL('vendor/',location.href).href;
-    worker = worker || await Tesseract.createWorker(['eng','por'],1,{workerPath:base+'worker.min.js',corePath:base+'core',langPath:base+'lang',cacheMethod:'none'});
-    await worker.setParameters({tessedit_pageseg_mode:'7',preserve_interword_spaces:'1'});
-    $('startBox').hidden=true; running=true; layout();
-    $('dot').classList.add('on'); $('readTxt').textContent='Procurando o nome…';
+      $('torchBtn').hidden=!cap.torch; if(torch&&cap.torch) await track.applyConstraints({advanced:[{torch:true}]}); }catch(e){}
+    $('startBox').hidden=true; running=true; motionPrev=null; layout();
+    $('dot').classList.toggle('on',!paused); $('readTxt').textContent=paused?'Pausado':(mode==='tap'?'Toque na imagem para ler':'Procurando o nome…');
     try{ await navigator.wakeLock?.request('screen'); }catch(e){}
-    loop();
+    gen++; loop(gen);
   }catch(e){
-    console.warn(e); $('startBtn').disabled=false;
-    msg.textContent = !window.isSecureContext ? 'A câmera só funciona com o app aberto por um endereço https.'
-      : (e.name==='NotAllowedError' ? 'Permita o uso da câmera e tente de novo.' : 'Não consegui iniciar: '+(e.message||e.name));
+    console.warn(e); $('startBtn').disabled=false; running=false;
+    msg.textContent = e.name==='NotAllowedError' ? 'Permita o uso da câmera e toque de novo.' : 'Não consegui iniciar: '+(e.message||e.name);
   }
+  starting=false;
 }
+function stop(){ running=false; try{ stream&&stream.getTracks().forEach(t=>t.stop()); }catch(e){} stream=null; track=null; }
 $('startBtn').onclick=start;
-document.addEventListener('visibilitychange',async()=>{ if(!document.hidden&&running){ try{ await navigator.wakeLock?.request('screen'); }catch(e){} } });
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){ stop(); return; }
+  start(); // volta do segundo plano: reabre a câmera sozinha
+});
 
 /* ---------- controles ---------- */
 function setMode(m){ mode=m; $('mCont').setAttribute('aria-pressed',m==='cont'); $('mTap').setAttribute('aria-pressed',m==='tap');
@@ -302,7 +301,7 @@ function setMode(m){ mode=m; $('mCont').setAttribute('aria-pressed',m==='cont');
 $('mCont').onclick=()=>setMode('cont'); $('mTap').onclick=()=>setMode('tap');
 $('pauseBtn').onclick=()=>{ paused=!paused; $('pauseBtn').textContent=paused?'Continuar':'Pausar'; $('pauseBtn').classList.toggle('on',paused);
   $('dot').classList.toggle('on',!paused&&running); if(paused) $('readTxt').textContent='Pausado'; };
-let torch=false; $('torchBtn').onclick=async()=>{ torch=!torch; try{ await track.applyConstraints({advanced:[{torch}]}); $('torchBtn').classList.toggle('on',torch);}catch(e){ torch=!torch; } };
+$('torchBtn').onclick=async()=>{ torch=!torch; try{ await track.applyConstraints({advanced:[{torch}]}); $('torchBtn').classList.toggle('on',torch);}catch(e){ torch=!torch; } };
 $('plusBtn').onclick=()=>{ const i=history.length?history[history.length-1]:entries.length-1; if(i<0||!entries[i]) return; entries[i].count++; history.push(i); save(); render(i); feedback(); };
 $('undoBtn').onclick=()=>{ const i=history.pop(); if(i==null||!entries[i]){ toast('Nada para desfazer'); return; }
   entries[i].count--; if(entries[i].count<=0){ entries.splice(i,1); history=history.filter(h=>h!==i).map(h=>h>i?h-1:h); } save(); render(); toast('Desfeito'); };
@@ -328,7 +327,7 @@ $('clearBtn').onclick=()=>{ $('confirmBox').hidden=false; $('confirmBox').scroll
 $('noClear').onclick=()=>{ $('confirmBox').hidden=true; };
 $('yesClear').onclick=()=>{ entries=[]; history=[]; lastKey=''; save(); render(); $('confirmBox').hidden=true; toast('Lista apagada'); };
 
-layout(); render();
+layout(); render(); start();
 })();
 </script>
 </body>

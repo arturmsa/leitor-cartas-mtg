@@ -2,21 +2,16 @@
   "name": "leitor-cartas-mtg",
   "version": "1.0.0",
   "private": true,
-  "description": "App Android que lê o nome de cartas de Magic pela câmera e gera a lista com quantidades.",
+  "description": "App Android que l\u00ea o nome de cartas de Magic pela c\u00e2mera e gera a lista com quantidades.",
   "scripts": {
-    "vendor": "node scripts/vendor.js",
-    "sync": "npm run vendor && npx cap sync android"
+    "sync": "npx cap sync android"
   },
   "dependencies": {
     "@capacitor/android": "6.2.2",
     "@capacitor/clipboard": "6.0.3",
     "@capacitor/core": "6.2.2",
     "@capacitor/filesystem": "6.0.4",
-    "@capacitor/share": "6.0.4",
-    "@tesseract.js-data/eng": "1.0.0",
-    "@tesseract.js-data/por": "1.0.0",
-    "tesseract.js": "5.1.1",
-    "tesseract.js-core": "5.1.1"
+    "@capacitor/share": "6.0.4"
   },
   "devDependencies": {
     "@capacitor/cli": "6.2.2"

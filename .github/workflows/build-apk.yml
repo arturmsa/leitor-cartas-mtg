@@ -27,14 +27,16 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      - name: Copiar leitor e páginas para o Android
+      - name: Copiar páginas para o Android
         run: npm run sync
 
       - name: Compilar APK
         working-directory: android
+        shell: bash
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon 2>&1 | tee ../build.log
           cp app/build/outputs/apk/debug/app-debug.apk ../leitor-cartas-v${{ github.run_number }}.apk
 
       - uses: actions/upload-artifact@v4
@@ -50,3 +52,12 @@ jobs:
           body: Baixe o arquivo .apk abaixo direto no celular e instale.
           files: leitor-cartas-v${{ github.run_number }}.apk
           make_latest: true
+
+      - name: Guardar registro da falha
+        if: failure()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: falha-${{ github.run_number }}
+          name: Falha na compilação ${{ github.run_number }}
+          prerelease: true
+          files: build.log
