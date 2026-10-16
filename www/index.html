@@ -3,87 +3,98 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#14110f">
+<meta name="theme-color" content="#1747c9">
 <title>Leitor de Cartas MTG</title>
 <style>
-/* Layout: câmera em cima com moldura da carta, controles e lista embaixo, barra de exportação fixa no rodapé */
+/* Layout: faixa azul no topo, câmera grande, controles compactos, lista em branco, barra azul de exportação no rodapé.
+   Proporção: branco domina (fundo e lista), azul estrutura (topo, rodapé, botões), amarelo só destaca (faixa do nome, quantidades, botão principal). */
 :root{
-  --bg:#14110f; --panel:#1f1a17; --line:#3a312b; --fg:#efe7dd; --muted:#a3968a;
-  --gold:#e0a84a; --gold-ink:#1b1206; --ok:#6fc28b; --warn:#e3795f;
-  --display:"Cinzel","Noto Serif",Georgia,serif; --body:Roboto,system-ui,sans-serif; --mono:"Roboto Mono","Droid Sans Mono",ui-monospace,monospace;
-  color-scheme:dark;
+  --white:#ffffff; --paper:#f3f6fc; --line:#dde4f2;
+  --blue:#1747c9; --blue-deep:#0e2f8a; --blue-soft:#e6edfc;
+  --yellow:#ffc928; --yellow-soft:#fff4cc;
+  --ink:#14213d; --muted:#5d6b88; --ok:#1f9d55; --warn:#d64545;
+  --body:Roboto,"Segoe UI",system-ui,sans-serif; --mono:"Roboto Mono","Droid Sans Mono",ui-monospace,monospace;
+  color-scheme:light;
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 var(--body);-webkit-tap-highlight-color:transparent}
-body{padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))}
+html,body{margin:0;background:var(--white);color:var(--ink);font:15px/1.4 var(--body);-webkit-tap-highlight-color:transparent}
+body{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 .wrap{padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
-header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-block:calc(10px + env(safe-area-inset-top,0px)) 8px}
-h1{font:600 18px var(--display);letter-spacing:.04em;margin:0;color:var(--gold)}
-.tot{font:500 13px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
 
-.cam{position:relative;height:56vh;max-height:620px;min-height:320px;background:#000;border-radius:14px;overflow:hidden;touch-action:manipulation}
+header{background:var(--blue);color:var(--white);display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:calc(12px + env(safe-area-inset-top,0px)) 12px}
+h1{font:700 19px var(--body);letter-spacing:.01em;margin:0;display:flex;align-items:center;gap:8px}
+h1 i{display:inline-block;width:12px;height:16px;border-radius:3px;background:var(--yellow)}
+.tot{display:flex;gap:6px}
+.tot span{font:500 12.5px var(--mono);font-variant-numeric:tabular-nums;background:rgba(255,255,255,.14);border-radius:999px;padding:4px 10px}
+.tot b{color:var(--yellow);font-weight:600}
+
+.stage{background:var(--blue);padding-bottom:14px}
+.cam{position:relative;height:52vh;max-height:560px;min-height:300px;background:var(--blue-deep);border-radius:16px;overflow:hidden;touch-action:manipulation}
 video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.frame{position:absolute;border:2px solid rgba(239,231,221,.55);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.45);pointer-events:none}
-.strip{position:absolute;left:5%;right:5%;top:3.2%;height:7.2%;border:2px solid var(--gold);border-radius:6px;transition:background .15s}
-.strip::after{content:"nome";position:absolute;right:-2px;top:100%;margin-top:4px;font:500 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
-.strip.hit{background:rgba(111,194,139,.35);border-color:var(--ok)}
-.read{position:absolute;left:10px;right:10px;bottom:10px;display:flex;gap:8px;align-items:center;background:rgba(20,17,15,.82);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:14px}
+.frame{position:absolute;border:2px solid rgba(255,255,255,.9);border-radius:12px;box-shadow:0 0 0 9999px rgba(14,47,138,.42);pointer-events:none}
+.strip{position:absolute;border:3px solid var(--yellow);border-radius:6px;transition:background .15s,border-color .15s}
+.strip::after{content:"NOME";position:absolute;left:-3px;bottom:100%;margin-bottom:4px;font:700 10px var(--mono);letter-spacing:.14em;color:var(--ink);background:var(--yellow);border-radius:4px;padding:2px 6px}
+.strip.hit{background:rgba(31,157,85,.35);border-color:#3ddc84}
+.read{position:absolute;left:10px;right:10px;bottom:10px;display:flex;gap:10px;align-items:center;background:var(--white);border-radius:12px;padding:10px 12px;box-shadow:0 4px 14px rgba(14,47,138,.25)}
 .read b{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--line);flex:none}
 .dot.on{background:var(--ok);animation:pulse 1s infinite}
 @keyframes pulse{50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.dot.on{animation:none}}
-.start{position:absolute;inset:0;display:grid;place-content:center;gap:10px;text-align:center;padding:20px;background:rgba(20,17,15,.88)}
-.start p{margin:0;color:var(--muted);max-width:30ch}
 
-.bar{display:flex;flex-wrap:wrap;gap:8px;padding-block:10px}
-button{font:600 14px var(--body);color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 14px;cursor:pointer;min-height:44px}
-button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;padding-block:12px 4px}
+button{font:600 14px var(--body);color:var(--blue);background:var(--white);border:1.5px solid var(--line);border-radius:12px;padding:10px 14px;cursor:pointer;min-height:44px}
+button:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
 button:active{transform:scale(.97)}
-button.pri{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}
-button.on{border-color:var(--gold);color:var(--gold)}
+button.on{background:var(--yellow-soft);border-color:var(--yellow);color:var(--ink)}
 .bar .grow{flex:1}
-.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.seg button{border:0;border-radius:0;background:transparent;color:var(--muted)}
-.seg button[aria-pressed="true"]{background:var(--panel);color:var(--fg)}
-.hint{color:var(--muted);font-size:13px;margin:0 0 6px}
+.seg{display:flex;background:var(--paper);border-radius:12px;padding:3px;gap:3px}
+.seg button{border:0;background:transparent;color:var(--muted);min-height:38px;padding:8px 12px}
+.seg button[aria-pressed="true"]{background:var(--blue);color:var(--white)}
+.hint{color:var(--muted);font-size:13px;margin:4px 0 10px}
 
-ol{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
-li{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+.listhead{display:flex;justify-content:space-between;align-items:baseline;padding-block:6px}
+.listhead h2{font:700 13px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--blue);margin:0}
+.listhead span{font-size:12px;color:var(--muted)}
+ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+li{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 8px;background:var(--white);border:1.5px solid var(--line);border-radius:12px}
 li.new{animation:flash 1.2s}
-@keyframes flash{from{background:rgba(224,168,74,.25)}}
-.qty{font:500 17px var(--mono);font-variant-numeric:tabular-nums;width:2.6em;text-align:right;color:var(--gold);flex:none}
-li input{flex:1;min-width:0;font:500 15px var(--body);color:var(--fg);background:transparent;border:1px solid transparent;border-radius:6px;padding:6px}
-li input:focus{border-color:var(--line);background:var(--panel);outline:none}
-li button{min-height:38px;min-width:38px;padding:0 10px;font-size:16px}
-.empty{color:var(--muted);padding:18px 0;text-align:center}
+@keyframes flash{from{background:var(--yellow-soft);border-color:var(--yellow)}}
+.qty{font:600 16px var(--mono);font-variant-numeric:tabular-nums;min-width:2.4em;text-align:center;background:var(--yellow);color:var(--ink);border-radius:8px;padding:5px 4px;flex:none}
+li input{flex:1;min-width:0;font:500 15px var(--body);color:var(--ink);background:transparent;border:1.5px solid transparent;border-radius:8px;padding:6px}
+li input:focus{border-color:var(--blue);background:var(--paper);outline:none}
+li button{min-height:38px;min-width:38px;padding:0 10px;font-size:18px;line-height:1;border-color:transparent;background:var(--blue-soft)}
+.empty{color:var(--muted);padding:22px 12px;text-align:center;background:var(--paper);border-radius:12px}
 
-.out{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;background:var(--bg);border-top:1px solid var(--line);padding-block:10px calc(10px + env(safe-area-inset-bottom,0px))}
-.out button{flex:1;padding-inline:6px}
-.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:10px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.out{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;background:var(--blue);padding-block:10px calc(10px + env(safe-area-inset-bottom,0px))}
+.out button{flex:1;padding-inline:4px;background:rgba(255,255,255,.12);color:var(--white);border-color:rgba(255,255,255,.25)}
+.out button.pri{background:var(--yellow);color:var(--ink);border-color:var(--yellow);flex:1.3}
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--white);padding:9px 14px;border-radius:10px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap;z-index:5}
 .toast.show{opacity:1}
-.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--warn);border-radius:10px;padding:10px;margin-block:8px}
-.confirm span{flex:1;min-width:12ch}
+.sheet{position:fixed;inset:0;background:rgba(20,33,61,.45);display:flex;align-items:flex-end;z-index:10}
+.sheet>div{width:100%;background:var(--white);border-radius:18px 18px 0 0;padding-block:18px calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px}
+.sheet p{margin:0;font-weight:600;font-size:16px}
+.sheet .row{display:flex;gap:8px}
+.sheet .row button{flex:1}
+.sheet .danger{background:var(--warn);border-color:var(--warn);color:var(--white)}
 textarea{position:fixed;left:-9999px;top:0}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>Leitor de Cartas</h1>
-    <span class="tot" id="tot">0 cartas · 0 nomes</span>
-  </header>
+<header class="wrap">
+  <h1><i aria-hidden="true"></i>Leitor de Cartas</h1>
+  <div class="tot"><span><b id="totCards">0</b> cartas</span><span><b id="totNames">0</b> nomes</span></div>
+</header>
 
+<div class="stage wrap">
   <div class="cam" id="cam">
-    <video id="video" playsinline muted></video>
+    <video id="video" playsinline muted autoplay></video>
     <div class="frame" id="frame"><div class="strip" id="strip"></div></div>
-    <div class="read"><span class="dot" id="dot"></span><b id="readTxt">Câmera desligada</b></div>
-    <div class="start" id="startBox">
-      <button class="pri" id="startBtn">Abrir câmera</button>
-      <p id="startMsg">Abrindo a câmera…</p>
-    </div>
+    <div class="read"><span class="dot" id="dot"></span><b id="readTxt">Abrindo a câmera…</b></div>
   </div>
+</div>
 
+<div class="wrap">
   <div class="bar">
     <div class="seg" role="group" aria-label="Modo de leitura">
       <button id="mCont" aria-pressed="true">Contínuo</button>
@@ -96,12 +107,7 @@ textarea{position:fixed;left:-9999px;top:0}
   </div>
   <p class="hint" id="hint">Contínuo: troque a carta e ele lê sozinho. Para cartas iguais seguidas, basta trocar uma pela outra.</p>
 
-  <div id="confirmBox" class="confirm" hidden>
-    <span>Apagar a lista inteira?</span>
-    <button id="noClear">Cancelar</button>
-    <button id="yesClear" style="border-color:var(--warn);color:var(--warn)">Apagar</button>
-  </div>
-
+  <div class="listhead"><h2>Lista</h2><span>toque no nome para corrigir</span></div>
   <ol id="list"></ol>
 </div>
 
@@ -109,7 +115,14 @@ textarea{position:fixed;left:-9999px;top:0}
   <button class="pri" id="copyBtn">Copiar lista</button>
   <button id="txtBtn">Salvar .txt</button>
   <button id="shareBtn" hidden>Enviar</button>
-  <button id="clearBtn" aria-label="Limpar lista">Limpar</button>
+  <button id="clearBtn">Limpar</button>
+</div>
+
+<div class="sheet" id="confirmBox" hidden>
+  <div class="wrap">
+    <p>Apagar a lista inteira?</p>
+    <div class="row"><button id="noClear">Cancelar</button><button id="yesClear" class="danger">Apagar</button></div>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 <textarea id="clip" aria-hidden="true" tabindex="-1"></textarea>
@@ -124,6 +137,7 @@ const NAME = {x:.05, y:.032, w:.68, h:.072}; // faixa do nome (sem o custo de ma
 let entries = [];   // {name, count}
 let history = [];   // índices adicionados, para desfazer
 let stream=null, track=null, torch=false;
+let gen=0;
 let running=false, paused=false, mode='cont', busy=false;
 let armed=true, lastKey='', prevKey='', lastAddAt=0, motionPrev=null;
 
@@ -155,7 +169,7 @@ function add(name){
 }
 function render(hl=-1){
   const ol=$('list'); ol.textContent='';
-  if(!entries.length){ const d=document.createElement('div'); d.className='empty'; d.textContent='Nenhuma carta lida ainda.'; ol.append(d); }
+  if(!entries.length){ const d=document.createElement('div'); d.className='empty'; d.textContent='Nenhuma carta lida ainda. Encaixe uma carta na moldura.'; ol.append(d); }
   entries.forEach((e,i)=>{
     const li=document.createElement('li'); if(i===hl) li.className='new';
     const q=document.createElement('span'); q.className='qty'; q.textContent=e.count;
@@ -168,7 +182,7 @@ function render(hl=-1){
     li.append(q,inp,mi,pl); ol.append(li);
   });
   const total=entries.reduce((s,e)=>s+e.count,0);
-  $('tot').textContent=`${total} carta${total===1?'':'s'} · ${entries.length} nome${entries.length===1?'':'s'}`;
+  $('totCards').textContent=total; $('totNames').textContent=entries.length;
   if(hl>=0) ol.children[hl]?.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
 const listText=()=>entries.map(e=>`${e.count} ${e.name}`).join('\n');
@@ -186,7 +200,7 @@ let tt; function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add(
 
 /* ---------- moldura ---------- */
 function layout(){
-  const W=cam.clientWidth,H=cam.clientHeight-56; // deixa espaço para a leitura
+  const W=cam.clientWidth,H=cam.clientHeight-62; // deixa espaço para a leitura
   let h=H*.94, w=h*CARD; if(w>W*.92){ w=W*.92; h=w/CARD; }
   Object.assign(frame.style,{width:w+'px',height:h+'px',left:(W-w)/2+'px',top:Math.max(8,(H-h)/2)+'px'});
   Object.assign(strip.style,{left:NAME.x*100+'%',width:NAME.w*100+'%',right:'auto',top:NAME.y*100+'%',height:NAME.h*100+'%'});
@@ -233,7 +247,6 @@ async function ocrOnce(){
   const ok = t.length>=3 && letters/Math.max(1,t.replace(/ /g,'').length)>.8;
   return {text:t, ok};
 }
-let gen=0;
 async function loop(g=gen){
   if(!running||g!==gen) return;
   if(paused||mode!=='cont'||busy){ setTimeout(()=>loop(g),150); return; }
@@ -261,37 +274,46 @@ async function tapRead(){
   }catch(e){ console.warn(e); }
   busy=false;
 }
-cam.addEventListener('click',e=>{ if(mode==='tap' && !e.target.closest('.start')) tapRead(); });
+cam.addEventListener('click',()=>{ if(!camAlive()&&!opening){ start(); return; } if(mode==='tap') tapRead(); });
 
 /* ---------- câmera ---------- */
-let starting=false;
+let opening=null;
+const camAlive=()=>stream && track && track.readyState==='live';
+function setStatus(t){ $('readTxt').textContent=t; }
 async function start(){
-  if(starting) return; starting=true;
-  const msg=$('startMsg'); $('startBtn').disabled=true; $('startBox').hidden=false;
-  try{
-    if(!READER) throw Object.assign(new Error('Leitor de texto indisponível neste aparelho.'),{name:'NoReader'});
-    msg.textContent='Abrindo a câmera…';
-    stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
-    video.srcObject=stream; await video.play(); track=stream.getVideoTracks()[0];
-    try{ const cap=track.getCapabilities?.()||{};
-      if(cap.focusMode?.includes('continuous')) await track.applyConstraints({advanced:[{focusMode:'continuous'}]});
-      $('torchBtn').hidden=!cap.torch; if(torch&&cap.torch) await track.applyConstraints({advanced:[{torch:true}]}); }catch(e){}
-    $('startBox').hidden=true; running=true; motionPrev=null; layout();
-    $('dot').classList.toggle('on',!paused); $('readTxt').textContent=paused?'Pausado':(mode==='tap'?'Toque na imagem para ler':'Procurando o nome…');
-    try{ await navigator.wakeLock?.request('screen'); }catch(e){}
-    gen++; loop(gen);
-  }catch(e){
-    console.warn(e); $('startBtn').disabled=false; running=false;
-    msg.textContent = e.name==='NotAllowedError' ? 'Permita o uso da câmera e toque de novo.' : 'Não consegui iniciar: '+(e.message||e.name);
-  }
-  starting=false;
+  if(camAlive()){ resume(); return; }
+  if(opening) return opening;
+  opening=(async()=>{
+    try{
+      if(!READER) throw Object.assign(new Error('leitor de texto indisponível neste aparelho'),{name:'NoReader'});
+      setStatus('Abrindo a câmera…');
+      const s=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
+      try{ stream&&stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+      stream=s; track=s.getVideoTracks()[0]; video.srcObject=s;
+      try{ await video.play(); }catch(e){}
+      try{ const cap=track.getCapabilities?.()||{};
+        if(cap.focusMode?.includes('continuous')) track.applyConstraints({advanced:[{focusMode:'continuous'}]}).catch(()=>{});
+        $('torchBtn').hidden=!cap.torch; if(torch&&cap.torch) track.applyConstraints({advanced:[{torch:true}]}).catch(()=>{}); }catch(e){}
+      resume();
+    }catch(e){
+      console.warn(e); running=false; $('dot').classList.remove('on');
+      setStatus(e.name==='NotAllowedError' ? 'Permita a câmera: toque aqui' : 'Câmera indisponível: '+(e.message||e.name)+'. Toque aqui');
+    }finally{ opening=null; }
+  })();
+  return opening;
 }
-function stop(){ running=false; try{ stream&&stream.getTracks().forEach(t=>t.stop()); }catch(e){} stream=null; track=null; }
-$('startBtn').onclick=start;
+function resume(){
+  running=true; motionPrev=null; layout();
+  $('dot').classList.toggle('on',!paused);
+  setStatus(paused?'Pausado':(mode==='tap'?'Toque na imagem para ler':'Procurando o nome…'));
+  try{ navigator.wakeLock?.request('screen').catch(()=>{}); }catch(e){}
+  gen++; loop(gen);
+}
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){ stop(); return; }
-  start(); // volta do segundo plano: reabre a câmera sozinha
+  if(document.hidden){ running=false; return; }   // pausa a leitura, mantém a câmera
+  start();
 });
+video.addEventListener('loadedmetadata',layout);
 
 /* ---------- controles ---------- */
 function setMode(m){ mode=m; $('mCont').setAttribute('aria-pressed',m==='cont'); $('mTap').setAttribute('aria-pressed',m==='tap');
@@ -323,7 +345,8 @@ if(P&&P.Share || navigator.share){ $('shareBtn').hidden=false;
   $('shareBtn').onclick=async()=>{ const t=listText(); if(!t){ toast('A lista está vazia'); return; }
     try{ if(P&&P.Share){ const r=await P.Filesystem.writeFile({path:fileName(),data:t,directory:'CACHE',encoding:'utf8'}); await P.Share.share({title:'Lista de cartas',text:t,files:[r.uri]}); }
          else await navigator.share({title:'Lista de cartas',text:t}); }catch(e){} }; }
-$('clearBtn').onclick=()=>{ $('confirmBox').hidden=false; $('confirmBox').scrollIntoView({block:'nearest'}); };
+$('clearBtn').onclick=()=>{ $('confirmBox').hidden=false; };
+$('confirmBox').onclick=e=>{ if(e.target.id==='confirmBox') $('confirmBox').hidden=true; };
 $('noClear').onclick=()=>{ $('confirmBox').hidden=true; };
 $('yesClear').onclick=()=>{ entries=[]; history=[]; lastKey=''; save(); render(); $('confirmBox').hidden=true; toast('Lista apagada'); };
 

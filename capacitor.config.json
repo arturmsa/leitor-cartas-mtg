@@ -2,5 +2,5 @@
   "appId": "com.artur.leitorcartas",
   "appName": "Leitor de Cartas",
   "webDir": "www",
-  "android": { "backgroundColor": "#14110f" }
+  "android": { "backgroundColor": "#ffffff" }
 }
