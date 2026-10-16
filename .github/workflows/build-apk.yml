@@ -1,0 +1,52 @@
+name: Gerar APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Copiar leitor e páginas para o Android
+        run: npm run sync
+
+      - name: Compilar APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../leitor-cartas-v${{ github.run_number }}.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: leitor-cartas-apk
+          path: leitor-cartas-v${{ github.run_number }}.apk
+
+      - name: Publicar na página de versões
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Leitor de Cartas 1.0.${{ github.run_number }}
+          body: Baixe o arquivo .apk abaixo direto no celular e instale.
+          files: leitor-cartas-v${{ github.run_number }}.apk
+          make_latest: true

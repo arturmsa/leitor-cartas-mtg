@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Leitor de Cartas</string>
+    <string name="title_activity_main">Leitor de Cartas</string>
+    <string name="package_name">com.artur.leitorcartas</string>
+    <string name="custom_url_scheme">com.artur.leitorcartas</string>
+</resources>

@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14110f">
+<title>Leitor de Cartas MTG</title>
+<style>
+/* Layout: câmera em cima com moldura da carta, controles e lista embaixo, barra de exportação fixa no rodapé */
+:root{
+  --bg:#14110f; --panel:#1f1a17; --line:#3a312b; --fg:#efe7dd; --muted:#a3968a;
+  --gold:#e0a84a; --gold-ink:#1b1206; --ok:#6fc28b; --warn:#e3795f;
+  --display:"Cinzel","Noto Serif",Georgia,serif; --body:Roboto,system-ui,sans-serif; --mono:"Roboto Mono","Droid Sans Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 var(--body);-webkit-tap-highlight-color:transparent}
+body{padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))}
+.wrap{padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-block:calc(10px + env(safe-area-inset-top,0px)) 8px}
+h1{font:600 18px var(--display);letter-spacing:.04em;margin:0;color:var(--gold)}
+.tot{font:500 13px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+
+.cam{position:relative;height:56vh;max-height:620px;min-height:320px;background:#000;border-radius:14px;overflow:hidden;touch-action:manipulation}
+video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.frame{position:absolute;border:2px solid rgba(239,231,221,.55);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.45);pointer-events:none}
+.strip{position:absolute;left:5%;right:5%;top:3.2%;height:7.2%;border:2px solid var(--gold);border-radius:6px;transition:background .15s}
+.strip::after{content:"nome";position:absolute;right:-2px;top:100%;margin-top:4px;font:500 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+.strip.hit{background:rgba(111,194,139,.35);border-color:var(--ok)}
+.read{position:absolute;left:10px;right:10px;bottom:10px;display:flex;gap:8px;align-items:center;background:rgba(20,17,15,.82);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:14px}
+.read b{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.dot.on{background:var(--ok);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.dot.on{animation:none}}
+.start{position:absolute;inset:0;display:grid;place-content:center;gap:10px;text-align:center;padding:20px;background:rgba(20,17,15,.88)}
+.start p{margin:0;color:var(--muted);max-width:30ch}
+
+.bar{display:flex;flex-wrap:wrap;gap:8px;padding-block:10px}
+button{font:600 14px var(--body);color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 14px;cursor:pointer;min-height:44px}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button:active{transform:scale(.97)}
+button.pri{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}
+button.on{border-color:var(--gold);color:var(--gold)}
+.bar .grow{flex:1}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--fg)}
+.hint{color:var(--muted);font-size:13px;margin:0 0 6px}
+
+ol{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+li{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+li.new{animation:flash 1.2s}
+@keyframes flash{from{background:rgba(224,168,74,.25)}}
+.qty{font:500 17px var(--mono);font-variant-numeric:tabular-nums;width:2.6em;text-align:right;color:var(--gold);flex:none}
+li input{flex:1;min-width:0;font:500 15px var(--body);color:var(--fg);background:transparent;border:1px solid transparent;border-radius:6px;padding:6px}
+li input:focus{border-color:var(--line);background:var(--panel);outline:none}
+li button{min-height:38px;min-width:38px;padding:0 10px;font-size:16px}
+.empty{color:var(--muted);padding:18px 0;text-align:center}
+
+.out{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;background:var(--bg);border-top:1px solid var(--line);padding-block:10px calc(10px + env(safe-area-inset-bottom,0px))}
+.out button{flex:1;padding-inline:6px}
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:10px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--warn);border-radius:10px;padding:10px;margin-block:8px}
+.confirm span{flex:1;min-width:12ch}
+textarea{position:fixed;left:-9999px;top:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Leitor de Cartas</h1>
+    <span class="tot" id="tot">0 cartas · 0 nomes</span>
+  </header>
+
+  <div class="cam" id="cam">
+    <video id="video" playsinline muted></video>
+    <div class="frame" id="frame"><div class="strip" id="strip"></div></div>
+    <div class="read"><span class="dot" id="dot"></span><b id="readTxt">Câmera desligada</b></div>
+    <div class="start" id="startBox">
+      <button class="pri" id="startBtn">Abrir câmera</button>
+      <p id="startMsg">Encaixe a carta na moldura, com o nome dentro da faixa dourada.</p>
+    </div>
+  </div>
+
+  <div class="bar">
+    <div class="seg" role="group" aria-label="Modo de leitura">
+      <button id="mCont" aria-pressed="true">Contínuo</button>
+      <button id="mTap" aria-pressed="false">Toque</button>
+    </div>
+    <button id="pauseBtn">Pausar</button>
+    <button id="torchBtn" hidden>Lanterna</button>
+    <button id="plusBtn" class="grow">+1 na última</button>
+    <button id="undoBtn">Desfazer</button>
+  </div>
+  <p class="hint" id="hint">Contínuo: troque a carta e ele lê sozinho. Para cartas iguais seguidas, basta trocar uma pela outra.</p>
+
+  <div id="confirmBox" class="confirm" hidden>
+    <span>Apagar a lista inteira?</span>
+    <button id="noClear">Cancelar</button>
+    <button id="yesClear" style="border-color:var(--warn);color:var(--warn)">Apagar</button>
+  </div>
+
+  <ol id="list"></ol>
+</div>
+
+<div class="out wrap">
+  <button class="pri" id="copyBtn">Copiar lista</button>
+  <button id="txtBtn">Salvar .txt</button>
+  <button id="shareBtn" hidden>Enviar</button>
+  <button id="clearBtn" aria-label="Limpar lista">Limpar</button>
+</div>
+<div class="toast" id="toast"></div>
+<textarea id="clip" aria-hidden="true" tabindex="-1"></textarea>
+
+<script src="vendor/tesseract.min.js"></script>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const video=$('video'), cam=$('cam'), frame=$('frame'), strip=$('strip');
+const CARD = 63/88;               // proporção da carta
+const NAME = {x:.05, y:.032, w:.68, h:.072}; // faixa do nome (sem o custo de mana)
+
+let entries = [];   // {name, count}
+let history = [];   // índices adicionados, para desfazer
+let worker=null, stream=null, track=null;
+let running=false, paused=false, mode='cont', busy=false;
+let armed=true, lastKey='', prevKey='', lastAddAt=0, motionPrev=null;
+
+/* ---------- persistência ---------- */
+try{ const s=JSON.parse(localStorage.getItem('mtg-lista')||'null'); if(s&&Array.isArray(s.entries)) entries=s.entries; }catch(e){}
+const save=()=>{ try{ localStorage.setItem('mtg-lista',JSON.stringify({entries})); }catch(e){} };
+
+/* ---------- texto ---------- */
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+function clean(raw){
+  let t = (raw||'').replace(/[\r\n]+/g,' ')
+    .replace(/[^A-Za-zÀ-ÿ0-9' ,\-]/g,' ').replace(/\s+/g,' ').trim();
+  // remove lixo isolado nas pontas (símbolos de mana lidos como letras soltas)
+  t = t.replace(/^([B-DF-NP-Zb-df-np-z0-9] )+/,'').replace(/( [A-Za-z0-9])+$/,'').trim();
+  return t;
+}
+function sim(a,b){
+  if(!a||!b) return 0; if(a===b) return 1;
+  const m=a.length,n=b.length; let p=Array(n+1).fill(0).map((_,j)=>j);
+  for(let i=1;i<=m;i++){ let c=[i]; for(let j=1;j<=n;j++) c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1)); p=c; }
+  return 1-p[n]/Math.max(m,n);
+}
+
+/* ---------- lista ---------- */
+function add(name){
+  const k=norm(name); let idx=entries.findIndex(e=>sim(norm(e.name),k)>=.82);
+  if(idx<0){ entries.push({name,count:1}); idx=entries.length-1; } else entries[idx].count++;
+  history.push(idx); save(); render(idx); feedback();
+}
+function render(hl=-1){
+  const ol=$('list'); ol.textContent='';
+  if(!entries.length){ const d=document.createElement('div'); d.className='empty'; d.textContent='Nenhuma carta lida ainda.'; ol.append(d); }
+  entries.forEach((e,i)=>{
+    const li=document.createElement('li'); if(i===hl) li.className='new';
+    const q=document.createElement('span'); q.className='qty'; q.textContent=e.count;
+    const inp=document.createElement('input'); inp.id='n'+i; inp.value=e.name; inp.setAttribute('aria-label','Nome da carta');
+    inp.onchange=()=>{ e.name=inp.value.trim()||e.name; save(); };
+    const mi=document.createElement('button'); mi.textContent='−'; mi.setAttribute('aria-label','Diminuir');
+    mi.onclick=()=>{ e.count--; if(e.count<=0) entries.splice(i,1); history=[]; save(); render(); };
+    const pl=document.createElement('button'); pl.textContent='+'; pl.setAttribute('aria-label','Aumentar');
+    pl.onclick=()=>{ e.count++; save(); render(i); };
+    li.append(q,inp,mi,pl); ol.append(li);
+  });
+  const total=entries.reduce((s,e)=>s+e.count,0);
+  $('tot').textContent=`${total} carta${total===1?'':'s'} · ${entries.length} nome${entries.length===1?'':'s'}`;
+  if(hl>=0) ol.children[hl]?.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+const listText=()=>entries.map(e=>`${e.count} ${e.name}`).join('\n');
+
+/* ---------- feedback ---------- */
+let actx=null;
+function feedback(){
+  strip.classList.add('hit'); setTimeout(()=>strip.classList.remove('hit'),350);
+  try{ navigator.vibrate&&navigator.vibrate(40); }catch(e){}
+  try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(),g=actx.createGain(); o.frequency.value=1250; g.gain.value=.08;
+    o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime+.07); }catch(e){}
+}
+let tt; function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),1600); }
+
+/* ---------- moldura ---------- */
+function layout(){
+  const W=cam.clientWidth,H=cam.clientHeight-56; // deixa espaço para a leitura
+  let h=H*.94, w=h*CARD; if(w>W*.92){ w=W*.92; h=w/CARD; }
+  Object.assign(frame.style,{width:w+'px',height:h+'px',left:(W-w)/2+'px',top:Math.max(8,(H-h)/2)+'px'});
+  Object.assign(strip.style,{left:NAME.x*100+'%',width:NAME.w*100+'%',right:'auto',top:NAME.y*100+'%',height:NAME.h*100+'%'});
+}
+addEventListener('resize',layout);
+
+// converte um retângulo da tela (CSS) para pixels do vídeo, considerando object-fit:cover
+function toVideo(r){
+  const vw=video.videoWidth,vh=video.videoHeight,cw=cam.clientWidth,ch=cam.clientHeight;
+  const s=Math.max(cw/vw,ch/vh), ox=(cw-vw*s)/2, oy=(ch-vh*s)/2;
+  return {x:(r.x-ox)/s,y:(r.y-oy)/s,w:r.w/s,h:r.h/s};
+}
+function rectOf(el){ const c=cam.getBoundingClientRect(),b=el.getBoundingClientRect(); return {x:b.left-c.left,y:b.top-c.top,w:b.width,h:b.height}; }
+
+/* ---------- imagem da faixa do nome ---------- */
+const oc=document.createElement('canvas'), ox=oc.getContext('2d',{willReadFrequently:true});
+function grabName(){
+  const r=rectOf(strip), pad=r.h*.12; r.x+=pad; r.y+=pad*.6; r.w-=pad*2; r.h-=pad*1.2;
+  const v=toVideo(r); const TH=64, sc=TH/v.h; oc.width=Math.round(v.w*sc); oc.height=TH;
+  ox.drawImage(video,v.x,v.y,v.w,v.h,0,0,oc.width,oc.height);
+  const im=ox.getImageData(0,0,oc.width,oc.height), d=im.data, n=d.length/4, g=new Uint8Array(n), hist=new Array(256).fill(0);
+  for(let i=0;i<n;i++){ const y=(d[i*4]*.299+d[i*4+1]*.587+d[i*4+2]*.114)|0; g[i]=y; hist[y]++; }
+  // limiar de Otsu
+  let sum=0; for(let i=0;i<256;i++) sum+=i*hist[i];
+  let sB=0,wB=0,best=0,th=128; for(let i=0;i<256;i++){ wB+=hist[i]; if(!wB) continue; const wF=n-wB; if(!wF) break; sB+=i*hist[i];
+    const mB=sB/wB,mF=(sum-sB)/wF,v2=wB*wF*(mB-mF)*(mB-mF); if(v2>best){best=v2;th=i;} }
+  let dark=0; for(let i=0;i<n;i++) if(g[i]<th) dark++;
+  const inv = dark>n/2; // texto claro em fundo escuro
+  for(let i=0;i<n;i++){ let b=g[i]<th?0:255; if(inv) b=255-b; d[i*4]=d[i*4+1]=d[i*4+2]=b; }
+  ox.putImageData(im,0,0);
+  return oc;
+}
+
+/* ---------- detecção de troca de carta ---------- */
+const mc=document.createElement('canvas'); mc.width=32; mc.height=44; const mx=mc.getContext('2d',{willReadFrequently:true});
+function motion(){
+  const v=toVideo(rectOf(frame)); mx.drawImage(video,v.x,v.y,v.w,v.h,0,0,32,44);
+  const d=mx.getImageData(0,0,32,44).data, cur=new Uint8Array(32*44);
+  for(let i=0;i<cur.length;i++) cur[i]=(d[i*4]+d[i*4+1]+d[i*4+2])/3;
+  let diff=0; if(motionPrev) for(let i=0;i<cur.length;i++) diff+=Math.abs(cur[i]-motionPrev[i]);
+  motionPrev=cur; return motionPrev?diff/cur.length:0;
+}
+
+/* ---------- OCR ---------- */
+async function ocrOnce(){
+  const c=grabName(); const {data}=await worker.recognize(c);
+  const t=clean(data.text); const letters=(t.match(/[A-Za-zÀ-ÿ]/g)||[]).length;
+  const ok = t.length>=3 && letters/t.replace(/ /g,'').length>.8 && data.confidence>=55;
+  return {text:t, ok, conf:data.confidence};
+}
+async function loop(){
+  if(!running) return;
+  if(paused||mode!=='cont'||busy){ setTimeout(loop,150); return; }
+  if(motion()>14) { armed=true; prevKey=''; }
+  busy=true;
+  try{
+    const r=await ocrOnce(); const k=norm(r.text);
+    $('readTxt').textContent = r.ok ? r.text : 'Procurando o nome…';
+    if(r.ok){
+      const stable = prevKey && sim(prevKey,k)>=.85;
+      const differs = sim(lastKey,k)<.8;
+      if(stable && (armed || differs) && Date.now()-lastAddAt>500){
+        add(r.text); lastKey=k; armed=false; lastAddAt=Date.now();
+      }
+      prevKey=k;
+    } else { prevKey=''; if(r.text.length===0) armed=true; }
+  }catch(e){ console.warn(e); }
+  busy=false; setTimeout(loop,60);
+}
+async function tapRead(){
+  if(!running||busy) return; busy=true; $('readTxt').textContent='Lendo…';
+  try{ let r=await ocrOnce(); if(!r.ok) r=await ocrOnce();
+    if(r.ok){ add(r.text); lastKey=norm(r.text); $('readTxt').textContent=r.text; }
+    else { $('readTxt').textContent='Não li o nome. Ajuste e toque de novo.'; toast('Nome não encontrado'); }
+  }catch(e){ console.warn(e); }
+  busy=false;
+}
+cam.addEventListener('click',e=>{ if(mode==='tap' && !e.target.closest('.start')) tapRead(); });
+
+/* ---------- câmera ---------- */
+async function start(){
+  const msg=$('startMsg'); $('startBtn').disabled=true;
+  try{
+    msg.textContent='Abrindo a câmera…';
+    stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}});
+    video.srcObject=stream; await video.play(); track=stream.getVideoTracks()[0];
+    try{ const cap=track.getCapabilities?.()||{};
+      if(cap.focusMode?.includes('continuous')) await track.applyConstraints({advanced:[{focusMode:'continuous'}]});
+      if(cap.torch) $('torchBtn').hidden=false; }catch(e){}
+    msg.textContent='Carregando o leitor…';
+    const base=new URL('vendor/',location.href).href;
+    worker = worker || await Tesseract.createWorker(['eng','por'],1,{workerPath:base+'worker.min.js',corePath:base+'core',langPath:base+'lang',cacheMethod:'none'});
+    await worker.setParameters({tessedit_pageseg_mode:'7',preserve_interword_spaces:'1'});
+    $('startBox').hidden=true; running=true; layout();
+    $('dot').classList.add('on'); $('readTxt').textContent='Procurando o nome…';
+    try{ await navigator.wakeLock?.request('screen'); }catch(e){}
+    loop();
+  }catch(e){
+    console.warn(e); $('startBtn').disabled=false;
+    msg.textContent = !window.isSecureContext ? 'A câmera só funciona com o app aberto por um endereço https.'
+      : (e.name==='NotAllowedError' ? 'Permita o uso da câmera e tente de novo.' : 'Não consegui iniciar: '+(e.message||e.name));
+  }
+}
+$('startBtn').onclick=start;
+document.addEventListener('visibilitychange',async()=>{ if(!document.hidden&&running){ try{ await navigator.wakeLock?.request('screen'); }catch(e){} } });
+
+/* ---------- controles ---------- */
+function setMode(m){ mode=m; $('mCont').setAttribute('aria-pressed',m==='cont'); $('mTap').setAttribute('aria-pressed',m==='tap');
+  $('hint').textContent = m==='cont' ? 'Contínuo: troque a carta e ele lê sozinho. Para cartas iguais seguidas, basta trocar uma pela outra.'
+                                      : 'Toque: encaixe a carta e toque na imagem para ler.';
+  if(m==='tap' && running) $('readTxt').textContent='Toque na imagem para ler'; }
+$('mCont').onclick=()=>setMode('cont'); $('mTap').onclick=()=>setMode('tap');
+$('pauseBtn').onclick=()=>{ paused=!paused; $('pauseBtn').textContent=paused?'Continuar':'Pausar'; $('pauseBtn').classList.toggle('on',paused);
+  $('dot').classList.toggle('on',!paused&&running); if(paused) $('readTxt').textContent='Pausado'; };
+let torch=false; $('torchBtn').onclick=async()=>{ torch=!torch; try{ await track.applyConstraints({advanced:[{torch}]}); $('torchBtn').classList.toggle('on',torch);}catch(e){ torch=!torch; } };
+$('plusBtn').onclick=()=>{ const i=history.length?history[history.length-1]:entries.length-1; if(i<0||!entries[i]) return; entries[i].count++; history.push(i); save(); render(i); feedback(); };
+$('undoBtn').onclick=()=>{ const i=history.pop(); if(i==null||!entries[i]){ toast('Nada para desfazer'); return; }
+  entries[i].count--; if(entries[i].count<=0){ entries.splice(i,1); history=history.filter(h=>h!==i).map(h=>h>i?h-1:h); } save(); render(); toast('Desfeito'); };
+
+/* ---------- exportar ---------- */
+const P = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ? window.Capacitor.Plugins : null;
+const fileName=()=>{ const d=new Date(),z=n=>String(n).padStart(2,'0'); return `cartas-${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}.txt`; };
+$('copyBtn').onclick=async()=>{ const t=listText(); if(!t){ toast('A lista está vazia'); return; }
+  try{ if(P&&P.Clipboard) await P.Clipboard.write({string:t}); else await navigator.clipboard.writeText(t); toast('Lista copiada'); }
+  catch(e){ const c=$('clip'); c.value=t; c.select(); try{ document.execCommand('copy'); toast('Lista copiada'); }catch(_){ toast('Não deu para copiar'); } } };
+$('txtBtn').onclick=async()=>{ const t=listText(); if(!t){ toast('A lista está vazia'); return; } const nm=fileName();
+  if(P&&P.Filesystem){
+    try{ await P.Filesystem.writeFile({path:nm,data:t,directory:'DOCUMENTS',encoding:'utf8'}); toast('Salvo em Documentos/'+nm); }
+    catch(e){ try{ const r=await P.Filesystem.writeFile({path:nm,data:t,directory:'CACHE',encoding:'utf8'}); await P.Share.share({title:nm,files:[r.uri]}); }catch(_){ toast('Não deu para salvar'); } }
+    return; }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([t],{type:'text/plain;charset=utf-8'})); a.download=nm; document.body.append(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000); toast('Arquivo salvo'); };
+if(P&&P.Share || navigator.share){ $('shareBtn').hidden=false;
+  $('shareBtn').onclick=async()=>{ const t=listText(); if(!t){ toast('A lista está vazia'); return; }
+    try{ if(P&&P.Share){ const r=await P.Filesystem.writeFile({path:fileName(),data:t,directory:'CACHE',encoding:'utf8'}); await P.Share.share({title:'Lista de cartas',text:t,files:[r.uri]}); }
+         else await navigator.share({title:'Lista de cartas',text:t}); }catch(e){} }; }
+$('clearBtn').onclick=()=>{ $('confirmBox').hidden=false; $('confirmBox').scrollIntoView({block:'nearest'}); };
+$('noClear').onclick=()=>{ $('confirmBox').hidden=true; };
+$('yesClear').onclick=()=>{ entries=[]; history=[]; lastKey=''; save(); render(); $('confirmBox').hidden=true; toast('Lista apagada'); };
+
+layout(); render();
+})();
+</script>
+</body>
+</html>
