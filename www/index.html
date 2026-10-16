@@ -108,7 +108,7 @@ textarea{position:fixed;left:-9999px;top:0}
   </div>
   <p class="hint" id="hint">Contínuo: troque a carta e ele lê sozinho. Para cartas iguais seguidas, basta trocar uma pela outra.</p>
 
-  <div class="listhead"><h2>Lista</h2><span>toque no nome para corrigir</span></div>
+  <div class="listhead"><h2>Lista</h2><span>última lida no topo · toque no nome para corrigir</span></div>
   <ol id="list"></ol>
 </div>
 
@@ -163,15 +163,21 @@ function sim(a,b){
 }
 
 /* ---------- lista ---------- */
+// entries fica na ordem da primeira leitura (é a ordem da lista exportada);
+// na tela, a carta lida por último aparece em cima (campo t).
+let seq=entries.reduce((m,e)=>Math.max(m,e.t||0),0);
+const touch=i=>{ entries[i].t=++seq; };
+const lastIdx=()=>entries.reduce((b,e,i)=>(b<0||(e.t||0)>=(entries[b].t||0))?i:b,-1);
 function add(name){
   const k=norm(name); let idx=entries.findIndex(e=>sim(norm(e.name),k)>=.82);
   if(idx<0){ entries.push({name,count:1}); idx=entries.length-1; } else entries[idx].count++;
-  history.push(idx); save(); render(idx); feedback();
+  touch(idx); history.push(idx); save(); render(idx); feedback();
 }
 function render(hl=-1){
   const ol=$('list'); ol.textContent='';
   if(!entries.length){ const d=document.createElement('div'); d.className='empty'; d.textContent='Nenhuma carta lida ainda. Encaixe uma carta na moldura.'; ol.append(d); }
-  entries.forEach((e,i)=>{
+  const order=entries.map((e,i)=>i).sort((a,b)=>((entries[b].t||0)-(entries[a].t||0))||(b-a));
+  order.forEach(i=>{ const e=entries[i];
     const li=document.createElement('li'); if(i===hl) li.className='new';
     const q=document.createElement('span'); q.className='qty'; q.textContent=e.count;
     const inp=document.createElement('input'); inp.id='n'+i; inp.value=e.name; inp.setAttribute('aria-label','Nome da carta');
@@ -184,7 +190,6 @@ function render(hl=-1){
   });
   const total=entries.reduce((s,e)=>s+e.count,0);
   $('totCards').textContent=total; $('totNames').textContent=entries.length;
-  if(hl>=0) ol.children[hl]?.scrollIntoView({block:'nearest',behavior:'smooth'});
 }
 const listText=()=>entries.map(e=>`${e.count} ${e.name}`).join('\n');
 
@@ -325,7 +330,7 @@ $('mCont').onclick=()=>setMode('cont'); $('mTap').onclick=()=>setMode('tap');
 $('pauseBtn').onclick=()=>{ paused=!paused; $('pauseBtn').textContent=paused?'Continuar':'Pausar'; $('pauseBtn').classList.toggle('on',paused);
   $('dot').classList.toggle('on',!paused&&running); if(paused) $('readTxt').textContent='Pausado'; };
 $('torchBtn').onclick=async()=>{ torch=!torch; try{ await track.applyConstraints({advanced:[{torch}]}); $('torchBtn').classList.toggle('on',torch);}catch(e){ torch=!torch; } };
-$('plusBtn').onclick=()=>{ const i=history.length?history[history.length-1]:entries.length-1; if(i<0||!entries[i]) return; entries[i].count++; history.push(i); save(); render(i); feedback(); };
+$('plusBtn').onclick=()=>{ const i=lastIdx(); if(i<0||!entries[i]) return; entries[i].count++; touch(i); history.push(i); save(); render(i); feedback(); };
 $('undoBtn').onclick=()=>{ const i=history.pop(); if(i==null||!entries[i]){ toast('Nada para desfazer'); return; }
   entries[i].count--; if(entries[i].count<=0){ entries.splice(i,1); history=history.filter(h=>h!==i).map(h=>h>i?h-1:h); } save(); render(); toast('Desfeito'); };
 
