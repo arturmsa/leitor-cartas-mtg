@@ -3,20 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#1747c9">
+<meta name="theme-color" content="#4a78d0">
 <title>Leitor de Cartas MTG</title>
 <style>
 /* Layout: faixa azul no topo, câmera grande, controles compactos, lista em branco, barra azul de exportação no rodapé.
    Proporção: branco domina (fundo e lista), azul estrutura (topo, rodapé, botões), amarelo só destaca (faixa do nome, quantidades, botão principal). */
 :root{
   --white:#ffffff; --paper:#f3f6fc; --line:#dde4f2;
-  --blue:#1747c9; --blue-deep:#0e2f8a; --blue-soft:#e6edfc;
+  --blue:#4a78d0; --blue-deep:#33599f; --blue-soft:#eaf1fd;
   --yellow:#ffc928; --yellow-soft:#fff4cc;
   --ink:#14213d; --muted:#5d6b88; --ok:#1f9d55; --warn:#d64545;
   --body:Roboto,"Segoe UI",system-ui,sans-serif; --mono:"Roboto Mono","Droid Sans Mono",ui-monospace,monospace;
   color-scheme:light;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;background:var(--white);color:var(--ink);font:15px/1.4 var(--body);-webkit-tap-highlight-color:transparent}
 body{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 .wrap{padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
@@ -31,11 +32,11 @@ h1 i{display:inline-block;width:12px;height:16px;border-radius:3px;background:va
 .stage{background:var(--blue);padding-bottom:14px}
 .cam{position:relative;height:52vh;max-height:560px;min-height:300px;background:var(--blue-deep);border-radius:16px;overflow:hidden;touch-action:manipulation}
 video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.frame{position:absolute;border:2px solid rgba(255,255,255,.9);border-radius:12px;box-shadow:0 0 0 9999px rgba(14,47,138,.42);pointer-events:none}
+.frame{position:absolute;border:2px solid rgba(255,255,255,.9);border-radius:12px;box-shadow:0 0 0 9999px rgba(51,89,159,.32);pointer-events:none}
 .strip{position:absolute;border:3px solid var(--yellow);border-radius:6px;transition:background .15s,border-color .15s}
 .strip::after{content:"NOME";position:absolute;left:-3px;bottom:100%;margin-bottom:4px;font:700 10px var(--mono);letter-spacing:.14em;color:var(--ink);background:var(--yellow);border-radius:4px;padding:2px 6px}
 .strip.hit{background:rgba(31,157,85,.35);border-color:#3ddc84}
-.read{position:absolute;left:10px;right:10px;bottom:10px;display:flex;gap:10px;align-items:center;background:var(--white);border-radius:12px;padding:10px 12px;box-shadow:0 4px 14px rgba(14,47,138,.25)}
+.read{position:absolute;left:10px;right:10px;bottom:10px;display:flex;gap:10px;align-items:center;background:var(--white);border-radius:12px;padding:10px 12px;box-shadow:0 4px 14px rgba(51,89,159,.22)}
 .read b{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--line);flex:none}
 .dot.on{background:var(--ok);animation:pulse 1s infinite}
