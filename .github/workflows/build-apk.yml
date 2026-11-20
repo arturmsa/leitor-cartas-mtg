@@ -16,13 +16,13 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
 
       - name: Instalar dependências
         run: npm ci
@@ -36,21 +36,28 @@ jobs:
         run: |
           chmod +x gradlew
           set -o pipefail
-          ./gradlew assembleDebug --no-daemon 2>&1 | tee ../build.log
+          ./gradlew assembleDebug bundleRelease --no-daemon 2>&1 | tee ../build.log
           cp app/build/outputs/apk/debug/app-debug.apk ../leitor-cartas-v${{ github.run_number }}.apk
+          cp app/build/outputs/bundle/release/app-release.aab ../leitor-cartas-v${{ github.run_number }}-play-sem-assinatura.aab
 
       - uses: actions/upload-artifact@v4
         with:
           name: leitor-cartas-apk
-          path: leitor-cartas-v${{ github.run_number }}.apk
+          path: |
+            leitor-cartas-v${{ github.run_number }}.apk
+            leitor-cartas-v${{ github.run_number }}-play-sem-assinatura.aab
 
       - name: Publicar na página de versões
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: Leitor de Cartas 1.0.${{ github.run_number }}
-          body: Baixe o arquivo .apk abaixo direto no celular e instale.
-          files: leitor-cartas-v${{ github.run_number }}.apk
+          body: |
+            Para instalar no celular, baixe o arquivo .apk.
+            O arquivo .aab é a versão para a Play Store, ainda sem a assinatura de envio.
+          files: |
+            leitor-cartas-v${{ github.run_number }}.apk
+            leitor-cartas-v${{ github.run_number }}-play-sem-assinatura.aab
           make_latest: true
 
       - name: Guardar registro da falha
